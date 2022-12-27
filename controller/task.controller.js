@@ -1,123 +1,75 @@
-const { v4: uuidv4 } = require("uuid");
+const dataSource = require("../datasource");
 
-let taskData = [
-  {
-    id: "1",
-    title: "todo",
-    isDone: true,
-  },
-  {
-    id: "2",
-    title: "todo 2",
-    isDone: false,
-  },
-];
+const ROUTER_PATH = "tasks";
 
 function getAllTasks(request, response) {
-  return response.end(JSON.stringify(taskData));
+  return dataSource.getAll(ROUTER_PATH, (tasks) => {
+    return response.end(JSON.stringify(tasks));
+  });
 }
 
 function getTaskById(request, response) {
   const url = request.url;
   const taskId = url.split(/id=/gm).pop();
-  const taskDetail = taskData.find((task) => {
-    return task.id === taskId;
+
+  return dataSource.getDetail(ROUTER_PATH, taskId, (taskDetail) => {
+    if (!taskDetail) {
+      response.statusCode = 404;
+    } else {
+      response.statusCode = 200;
+    }
+
+    return response.end(JSON.stringify(taskDetail ? taskDetail : null));
   });
-
-  if (!taskDetail) {
-    response.statusCode = 404;
-  } else {
-    response.statusCode = 200;
-  }
-
-  return response.end(JSON.stringify(taskDetail ? taskDetail : null));
 }
 
 function createTask(request, response) {
-  let rawBodyData = "";
-  request.on("data", function (chunkData) {
-    rawBodyData += chunkData;
-  });
+  const bodyData = request.bodyData;
 
-  request.on("end", function () {
-    const bodyData = JSON.parse(rawBodyData);
-    const newTask = {
-      id: uuidv4(),
-      title: bodyData.title,
-      isDone: bodyData.isDone,
-    };
-    taskData.push(newTask);
-
-    return response.end(JSON.stringify(taskData));
+  return dataSource.create(ROUTER_PATH, bodyData, (newTask) => {
+    return response.end(JSON.stringify(newTask));
   });
 }
 
 function updateTask(request, response) {
-  let rawBodyData = "";
   const url = request.url;
+  const bodyData = request.bodyData;
   const [_, taskId] = url.split(/id=/gm);
 
-  request.on("data", function (chunkData) {
-    rawBodyData += chunkData;
-  });
-
-  request.on("end", function () {
-    const bodyData = JSON.parse(rawBodyData);
-    const foundTaskIndex = taskData.findIndex((item) => {
-      return item.id === taskId;
-    });
-    const foundTask = taskData[foundTaskIndex];
-    if (foundTaskIndex === -1) {
-      return response.end(null);
+  return dataSource.updateOrReplace(
+    ROUTER_PATH,
+    bodyData,
+    taskId,
+    false,
+    (updatedTask) => {
+      return response.end(JSON.stringify(updatedTask));
     }
-
-    taskData[foundTaskIndex] = {
-      ...foundTask,
-      ...bodyData,
-      id: foundTask.id,
-    };
-
-    return response.end(JSON.stringify(taskData));
-  });
+  );
 }
 
 function replaceTask(request, response) {
-  let rawBodyData = "";
   const url = request.url;
+  const bodyData = request.bodyData;
   const [_, taskId] = url.split(/id=/gm);
 
-  request.on("data", function (chunkData) {
-    rawBodyData += chunkData;
-  });
-
-  request.on("end", function () {
-    const bodyData = JSON.parse(rawBodyData);
-    const foundTaskIndex = taskData.findIndex((item) => {
-      return item.id === taskId;
-    });
-    if (foundTaskIndex === -1) {
-      return response.end(null);
+  return dataSource.updateOrReplace(
+    ROUTER_PATH,
+    bodyData,
+    taskId,
+    true,
+    (updatedTask) => {
+      return response.end(JSON.stringify(updatedTask));
     }
-
-    taskData[foundTaskIndex] = {
-      ...bodyData,
-      id: uuidv4(),
-    };
-
-    return response.end(JSON.stringify(taskData));
-  });
+  );
 }
 
 function deleteTask(request, response) {
   const url = request.url;
   const [_, taskId] = url.split(/id=/gm);
 
-  const filteredTaskData = taskData.filter((item) => {
-    return item.id !== taskId;
+  return dataSource.deleteData(ROUTER_PATH, taskId, (newTasks) => {
+    return response.end(JSON.stringify(newTasks));
   });
-  taskData = filteredTaskData;
-
-  return response.end(JSON.stringify(taskData));
 }
 
 module.exports = {

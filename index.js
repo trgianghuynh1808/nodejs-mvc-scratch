@@ -15,8 +15,12 @@ const server = http.createServer(function (request, response) {
   response.setHeader("Content-Type", "text/plain");
 
   const router = getRouter(request);
-  const controller = router[method];
-  controller(request, response);
+  const controller = router[method].controller;
+  const middleware = router[method].middleware;
+
+  handleMiddleware(middleware, request, () => {
+    controller(request, response);
+  });
 });
 
 server.listen(port, hostname, function () {
@@ -32,4 +36,14 @@ function getRouter(request) {
   }
 
   return {};
+}
+
+function handleMiddleware(middleware, request, callback) {
+  middleware.forEach((middlewareItem, index) => {
+    if (index === middleware.length - 1) {
+      return middlewareItem(request, callback);
+    }
+
+    middlewareItem(request);
+  });
 }
